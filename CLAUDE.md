@@ -53,9 +53,9 @@ PWA multi-plataforma para psiquiatras gravarem consultas e receberem transcriç�
 
 ### IA e processamento
 - **Google Cloud Speech-to-Text** (região `southamerica-east1`) para transcrição
-- **Maritaca Sabiá 4** como LLM primário para resumo SOAP
-  - SDK: usa client OpenAI-compatível com `base_url="https://chat.maritaca.ai/api"`
-- **Claude via AWS Bedrock** (região `sa-east-1`) como fallback do LLM — validado no Spike 2
+- **Gemini 2.5 Pro via Vertex AI** (região `southamerica-east1`) como LLM primário para resumo SOAP
+- **Gemini 2.5 Flash via Vertex AI** como fallback mais barato/rápido (mesma região)
+- **Maritaca Sabiá 4** avaliado como terceira opção no Spike 2 para comparação
 - **Google Cloud Storage** para armazenar áudio (mesma região)
 
 ### Infra
@@ -193,9 +193,10 @@ Trade-offs e implicações
 
 Decisões já tomadas que devem virar ADRs quando forem implementadas pela primeira vez:
 - ADR 0001 — Escolha do Google Cloud Speech-to-Text para transcrição
-- ADR 0002 — Escolha da Maritaca como LLM primário
+- ADR 0002 — Escolha do Gemini (via Vertex AI, região São Paulo) como LLM primário, com Maritaca como alternativa avaliada
 - ADR 0003 — BullMQ + Redis no mesmo container do app
 - ADR 0004 — Next.js App Router com Server Components por padrão
+- ADR 0005 — Consolidação do stack em Google Cloud (único provedor para transcrição, LLM, storage, DB, cache, hosting)
 
 ---
 

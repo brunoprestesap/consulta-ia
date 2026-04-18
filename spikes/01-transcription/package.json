@@ -1,0 +1,25 @@
+{
+  "name": "spike-01-transcription",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Spike 1 — Validação de WER <= 10% em transcrição PT-BR via Google Cloud Speech-to-Text",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "transcribe": "tsx src/transcribe.ts",
+    "wer": "tsx src/compute-wer.ts",
+    "run-all": "tsx src/run-all.ts"
+  },
+  "dependencies": {
+    "@google-cloud/speech": "^6.7.0",
+    "@google-cloud/storage": "^7.14.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}

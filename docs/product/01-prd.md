@@ -240,8 +240,9 @@ O foco inicial (MVP) é a especialidade **Psiquiatria**, pelas particularidades 
 - **Modelo de negócio:** ainda não definido (assinatura mensal? freemium? pay-per-use?).
 - **Design visual e mockups:** pendente.
 - **Validação clínica do template psiquiátrico:** a estrutura proposta (Histórico, EEM, Medicações, HD com CID-10, Conduta) precisa ser validada com psiquiatras reais antes da implementação.
-- **Tecnologia de transcrição:** definir se será modelo próprio, API de terceiros (ex: Whisper self-hosted, APIs nacionais), e como isso se concilia com a exigência de hospedagem no Brasil.
-- **Provedor de hospedagem com região Brasil:** decidir entre AWS São Paulo, Google Cloud São Paulo, Azure Brasil Sul ou provedores nacionais (Magalu Cloud, etc.).
+- **Tecnologia de transcrição:** Google Cloud Speech-to-Text (região São Paulo) escolhido como primário, validação empírica no Spike 1.
+- **LLM para resumo SOAP:** Gemini 2.5 Pro via Vertex AI (região São Paulo) como primário, Gemini 2.5 Flash como fallback barato, Maritaca Sabiá 4 avaliado como referência no Spike 2. Decisão registrada em ADR 0007.
+- **Provedor de hospedagem com região Brasil:** Google Cloud (consolidado) em `southamerica-east1`.
 - **Prazo exato de propagação da exclusão (direito ao esquecimento) em backups:** definir SLA interno.
 - **Política específica para dados de menores de idade:** consulta de adolescente tem requisitos adicionais de consentimento (responsáveis legais).
 - **Comportamento de fallback quando Wake Lock API não for suportada:** decidir se bloqueia gravação, se exibe aviso ao médico, ou se aceita o risco silenciosamente.

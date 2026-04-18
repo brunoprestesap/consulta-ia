@@ -1,0 +1,78 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.yarn/cache
+.yarn/unplugged
+.yarn/build-state.yml
+.yarn/install-state.gz
+
+# Testing
+coverage/
+.nyc_output/
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Misc
+.DS_Store
+*.pem
+.vscode/
+.idea/
+Thumbs.db
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Local env files
+.env
+.env*.local
+.env.development
+.env.production
+.env.test
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Turbo
+.turbo
+
+# Credenciais e segredos
+credentials/
+*.key
+*.pem
+*-sa-key.json
+gcp-credentials.json
+
+# Spikes — dados sensíveis ou descartáveis
+spikes/**/samples/
+spikes/**/results/
+spikes/**/reference/
+spikes/**/credentials/
+
+# Uploads locais de desenvolvimento
+uploads/
+tmp/
+
+# Banco de dados local
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# IDE
+.fleet/
+.cursor/

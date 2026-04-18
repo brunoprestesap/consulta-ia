@@ -74,10 +74,13 @@ _Lista completa com rastreabilidade para RFs em MVP v0.1 §4._
 | Componente | Tecnologia |
 |------------|-----------|
 | Transcrição (áudio → texto PT-BR) | Google Cloud Speech-to-Text, região `southamerica-east1` (São Paulo) |
-| LLM para resumo SOAP — primário | Maritaca Sabiá 4 |
-| LLM para resumo SOAP — fallback validado | Claude via AWS Bedrock `sa-east-1` |
+| LLM para resumo SOAP — primário | **Gemini 2.5 Pro via Vertex AI** (região São Paulo) |
+| LLM para resumo SOAP — fallback mais barato | **Gemini 2.5 Flash via Vertex AI** (mesma região) |
+| LLM para resumo SOAP — terceira opção validada no Spike 2 | Maritaca Sabiá 4 (referência comparativa) |
 | Armazenamento de áudio | Google Cloud Storage, bucket em região Brasil |
 | Worker de processamento | Mesmo container Docker do app Next.js (BullMQ consumer) |
+
+**Justificativa da consolidação no Google Cloud:** todo o stack de IA e infra fica em um único provedor, com região São Paulo nativa. Isso reduz fricção operacional (single billing, IAM unificado, menos credenciais), atende RNF-02 do PRD sem configurações especiais, e mantém opção de trocar para Maritaca no futuro se for estratégico. Maritaca permanece como referência no Spike 2 para validar empiricamente a decisão.
 
 ### 4.4 Infraestrutura
 
@@ -133,10 +136,10 @@ O plano está dividido em **5 fases sequenciais**. Não há prazos fixos (decis�
 
 2. **Spike de LLM para resumo SOAP**
    - Com as transcrições da Spike 1, criar prompt estruturado para gerar o template psiquiátrico (Histórico, EEM, Medicações, CID-10, Conduta).
-   - Rodar em **Maritaca Sabiá 4** e **Claude via Bedrock** com o mesmo prompt.
-   - Se possível, submeter os dois outputs a um psiquiatra (dos 1-2 já confirmados) para avaliação comparativa cega.
-   - **Critério de sucesso:** pelo menos um dos dois LLMs gera resumo considerado "útil com pequenos ajustes" pelo psiquiatra avaliador.
-   - **Decisão de saída da Spike:** escolher LLM primário com base no resultado. Documentar qualidade relativa e custo por 1000 tokens.
+   - Rodar em **Gemini 2.5 Pro**, **Gemini 2.5 Flash** e **Maritaca Sabiá 4** com o mesmo prompt.
+   - Submeter os três outputs a um psiquiatra (dos 1-2 já confirmados) para avaliação comparativa cega.
+   - **Critério de sucesso:** pelo menos um dos três LLMs gera resumo considerado "útil com pequenos ajustes" pelo psiquiatra avaliador.
+   - **Decisão de saída da Spike:** escolher LLM primário com base em qualidade, com Flash ou Maritaca como fallback. Documentar qualidade relativa e custo por 1000 tokens.
 
 3. **Spike de Wake Lock API no Safari iOS**
    - Criar página HTML mínima que solicita Wake Lock e mantém gravação MediaRecorder ativa por ≥ 30 minutos.
@@ -453,14 +456,14 @@ Em caso de falha, reabrir o Conceito de MVP antes de continuar qualquer desenvol
 |---|-------|--------------|---------|-----------|
 | R1 | Transcrição em PT-BR não atinge WER ≤ 10% em áudio real de consulta | Média | **Alto** (invalida a hipótese) | Fase 0 — Spike 1 antes de qualquer outra coisa. Testar dicionário customizado e modelo `long`. Plano B: avaliar Whisper self-hosted. |
 | R2 | Wake Lock API inconsistente no Safari iOS | Alta | Alto (áudio perdido) | Fase 0 — Spike 3. Fallback de áudio silencioso em loop. Aviso explícito ao médico como último recurso. |
-| R3 | LLM gera SOAP psiquiátrico de qualidade insuficiente | Média | Alto | Fase 0 — Spike 2 comparando Maritaca e Bedrock. Prompt evoluído iterativamente. Feedback qualitativo dos psiquiatras nas Fases 2 e 3. |
+| R3 | LLM gera SOAP psiquiátrico de qualidade insuficiente | Média | Alto | Fase 0 — Spike 2 comparando Gemini 2.5 Pro, Gemini 2.5 Flash e Maritaca Sabiá 4. Prompt evoluído iterativamente. Feedback qualitativo dos psiquiatras nas Fases 2 e 3. |
 | R4 | Dev solo sem prazo arrasta o projeto | Média | Médio | Checkpoints sugeridos ao fim de cada fase com demo obrigatória. Recrutar psiquiatras em paralelo (pressão social ao ter compromisso assumido). |
 | R5 | Falta de psiquiatras dispostos a testar | Média | Alto | Começar recrutamento **agora**, não ao fim do desenvolvimento. Cada conversa confirma hipóteses do produto. |
 | R6 | LGPD — vazamento de dados sensíveis de saúde | Baixa | **Crítico** | Criptografia em trânsito e repouso. Scrubbing de logs. Sentry com PII scrubber. Revisão de segurança antes do beta. Termo de beta explícito com cada médico. |
-| R7 | Custo de APIs explodir sem controle | Baixa | Baixo (orçamento sem limite no MVP) | Alertas de faturamento no GCP e na Maritaca. Cap de 100 consultas/semana/médico no back-end como circuit breaker. |
+| R7 | Custo de APIs explodir sem controle | Baixa | Baixo (orçamento sem limite no MVP) | Alertas de faturamento no GCP. Cap de 100 consultas/semana/médico no back-end como circuit breaker. |
 | R8 | Psiquiatra grava consulta mas detecção de consentimento falha | Média | Médio | UI aviso explícito quando não detecta. Exigência de checkbox ainda é a guarda legal primária. |
 | R9 | Falha de upload após consulta de 60 min | Média | Alto (dados perdidos) | Chunks persistidos em IndexedDB durante captura. Retry automático. UI de "sincronizando" visível. |
-| R10 | Maritaca Sabiá não atende qualidade e Bedrock vira primário | Média | Baixo (já mitigado) | Decisão na Fase 0. Plano B validado no mesmo spike. |
+| R10 | Gemini não atende qualidade esperada | Baixa | Baixo (já mitigado) | Spike 2 valida três LLMs em paralelo. Se Gemini Pro falhar, Flash ou Maritaca entram como alternativas. |
 
 ---
 
@@ -493,7 +496,7 @@ Em caso de falha, reabrir o Conceito de MVP antes de continuar qualquer desenvol
 | Cloud Run + Cloud SQL + Memorystore (staging + prod) | 200-400 | Escala para baixo quando ocioso |
 | Cloud Storage (áudio até 30 dias) | 20-50 | Áudio comprimido, 5 médicos × 20 consultas × ~10MB |
 | Google Cloud Speech-to-Text | 200-500 | ~R$ 0,80 por minuto de áudio × volume beta |
-| Maritaca Sabiá 4 (ou Bedrock) | 50-150 | Poucos milhões de tokens/mês no volume do beta |
+| Vertex AI (Gemini 2.5 Pro/Flash) | 50-200 | Poucos milhões de tokens/mês no volume do beta; Flash é muito mais barato |
 | Resend ou Postmark (e-mails) | 0-50 | Free tier cobre início |
 | Sentry | 0 | Free tier |
 | Domínio | ~80/ano | - |
@@ -537,4 +540,5 @@ Dependente do resultado do beta. Dois cenários principais:
 
 | Versão | Data | Alterações |
 |--------|------|------------|
-| 0.1 | 17/04/2026 | Plano de desenvolvimento inicial derivado de PRD v0.2 + UX v0.1 + MVP v0.1. Escolhas confirmadas pelo dev: Google Cloud Speech-to-Text, Maritaca Sabiá 4 primário + Bedrock fallback, BullMQ + Redis no mesmo container, sem milestones formais autoimpostos. |
+| 0.1 | 17/04/2026 | Plano de desenvolvimento inicial derivado de PRD v0.2 + UX v0.1 + MVP v0.1. |
+| 0.2 | 18/04/2026 | LLM para resumo SOAP trocado: Gemini 2.5 Pro (primário) + Gemini 2.5 Flash (fallback barato) + Maritaca Sabiá 4 (terceira opção avaliada no Spike 2). Justificativa: consolidação total no Google Cloud reduz fricção operacional para dev solo. |

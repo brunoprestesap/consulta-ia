@@ -14,9 +14,9 @@ Os spikes 2 e 3 serão documentados em detalhe quando o Spike 1 for concluído. 
 
 ### Spike 2 — LLM para resumo SOAP psiquiátrico
 
-**Objetivo:** comparar Maritaca Sabiá 4 e Claude via AWS Bedrock (sa-east-1) gerando resumo SOAP a partir das transcrições do Spike 1.
+**Objetivo:** comparar **Gemini 2.5 Pro**, **Gemini 2.5 Flash** (ambos via Vertex AI em `southamerica-east1`) e **Maritaca Sabiá 4** gerando resumo SOAP a partir das transcrições do Spike 1.
 
-**Critério de sucesso:** pelo menos um dos dois LLMs gera resumo considerado "útil com pequenos ajustes" por um psiquiatra avaliador.
+**Critério de sucesso:** pelo menos um dos três LLMs gera resumo considerado "útil com pequenos ajustes" por um psiquiatra avaliador. Decisão final leva em conta qualidade, custo por consulta e latência.
 
 ### Spike 3 — Wake Lock API no Safari iOS
 
