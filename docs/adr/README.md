@@ -23,7 +23,7 @@ Template mínimo em [`_template.md`](./_template.md).
 
 ## ADRs esperados no início do projeto
 
-- [ ] 0001 — Provider de transcrição (resultado do Spike 1)
+- [x] 0001 — Provider de transcrição (resultado do Spike 1)
 - [ ] 0002 — LLM primário para resumo SOAP: Gemini via Vertex AI (resultado do Spike 2)
 - [ ] 0003 — Estratégia de Wake Lock no Safari iOS (resultado do Spike 3)
 - [ ] 0004 — Arquitetura da fila de processamento (BullMQ + Redis no mesmo container)

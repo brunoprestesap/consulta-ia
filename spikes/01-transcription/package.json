@@ -10,7 +10,8 @@
   "scripts": {
     "transcribe": "tsx src/transcribe.ts",
     "wer": "tsx src/compute-wer.ts",
-    "run-all": "tsx src/run-all.ts"
+    "run-all": "tsx src/run-all.ts",
+    "test": "node --import tsx --test src/compute-wer.test.ts"
   },
   "dependencies": {
     "@google-cloud/speech": "^6.7.0",

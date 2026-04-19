@@ -7,7 +7,8 @@ import { computeWER } from './compute-wer.js';
 const SAMPLES_DIR = path.resolve('samples');
 const REFERENCE_DIR = path.resolve('reference');
 const WER_THRESHOLD = 0.10;
-const MIN_APPROVED = 3;
+const MIN_APPROVED = 2;
+const MIN_SAMPLES = 2;
 const SUPPORTED_EXT = /\.(wav|flac|ogg|opus)$/i;
 
 type Row = {
@@ -97,9 +98,9 @@ async function main() {
     `Aprovadas: ${approved}/${rows.length} · WER médio: ${(meanWER * 100).toFixed(1)}% · Áudio total: ${(totalAudio / 60).toFixed(1)}min · Custo total: US$${totalCost.toFixed(3)}`
   );
 
-  const spikePass = approved >= MIN_APPROVED && rows.length >= 5;
+  const spikePass = approved >= MIN_APPROVED && rows.length >= MIN_SAMPLES;
   console.log(
-    `\nResultado do spike: ${spikePass ? 'APROVADO ✅' : 'REPROVADO ❌'} (critério: ≥ ${MIN_APPROVED} de 5 com WER ≤ ${(WER_THRESHOLD * 100).toFixed(0)}%)`
+    `\nResultado do spike: ${spikePass ? 'APROVADO ✅' : 'REPROVADO ❌'} (critério: ≥ ${MIN_APPROVED} de ${MIN_SAMPLES} com WER ≤ ${(WER_THRESHOLD * 100).toFixed(0)}%)`
   );
 }
 

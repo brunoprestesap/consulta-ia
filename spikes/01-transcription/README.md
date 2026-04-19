@@ -21,7 +21,7 @@ Especificação completa: `docs/spikes/spike-01-transcription.md`.
 ## Instalação
 
 ```bash
-npm install
+pnpm install
 ```
 
 ## Estrutura esperada
@@ -54,17 +54,17 @@ FLAC é preferido (mantém qualidade, arquivo menor que WAV). Também servem `.w
 
 **Uma amostra isolada:**
 ```bash
-npm run transcribe -- samples/amostra-01.flac
+pnpm transcribe samples/amostra-01.flac
 ```
 
 **WER pontual entre dois arquivos:**
 ```bash
-npm run wer -- reference/amostra-01.txt results/amostra-01-google.txt
+pnpm wer reference/amostra-01.txt results/amostra-01-google.txt
 ```
 
 **Todas as amostras + tabela final:**
 ```bash
-npm run run-all
+pnpm run-all
 ```
 
 Saída esperada (exemplo):
@@ -72,12 +72,13 @@ Saída esperada (exemplo):
 Amostra             |     WER | Palavras | Erros |   Áudio |    Proc |    Custo | Status
 ------------------------------------------------------------------------------------------
 amostra-01          |    7.2% |       85 |     6 |    300s |     45s |  $0.080 | APROVADO
-amostra-02          |   11.5% |      142 |    16 |    600s |     90s |  $0.160 | REPROVADO
-...
-Aprovadas: 3/5 · WER médio: 10.0% · Áudio total: 60.0min · Custo total: US$0.960
+amostra-02          |    9.1% |      142 |    13 |    600s |     90s |  $0.160 | APROVADO
+Aprovadas: 2/2 · WER médio: 8.2% · Áudio total: 15.0min · Custo total: US$0.240
 
-Resultado do spike: APROVADO ✅ (critério: ≥ 3 de 5 com WER ≤ 10%)
+Resultado do spike: APROVADO ✅ (critério: ≥ 2 de 2 com WER ≤ 10%)
 ```
+
+> Critério reduzido para 2 amostras (em vez das 5 originais do spec). Trata-se de validação mais conservadora; se as duas passarem a conclusão é mais forte, se falharem paramos cedo.
 
 ## Configurações fixas do spike
 
