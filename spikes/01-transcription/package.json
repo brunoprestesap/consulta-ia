@@ -9,8 +9,10 @@
   },
   "scripts": {
     "transcribe": "tsx src/transcribe.ts",
+    "transcribe-whisper": "tsx src/transcribe-whisper.ts",
     "wer": "tsx src/compute-wer.ts",
     "run-all": "tsx src/run-all.ts",
+    "run-whisper": "tsx src/run-whisper.ts",
     "test": "node --import tsx --test src/compute-wer.test.ts"
   },
   "dependencies": {

@@ -24,9 +24,11 @@ Template mínimo em [`_template.md`](./_template.md).
 ## ADRs esperados no início do projeto
 
 - [x] 0001 — Provider de transcrição (resultado do Spike 1)
-- [ ] 0002 — LLM primário para resumo SOAP: Gemini via Vertex AI (resultado do Spike 2)
-- [ ] 0003 — Estratégia de Wake Lock no Safari iOS (resultado do Spike 3)
-- [ ] 0004 — Arquitetura da fila de processamento (BullMQ + Redis no mesmo container)
-- [ ] 0005 — Next.js App Router com Server Components por padrão
-- [ ] 0006 — Estratégia de armazenamento de áudio (chunking em IndexedDB + Cloud Storage)
-- [ ] 0007 — Consolidação do stack em Google Cloud (decisão tomada em 18/04/2026)
+- [x] 0002 — Processamento de áudio clínico real no Spike 1 sem DPA formal (compliance, 2026-04-21)
+- [ ] 0003 — LLM primário para resumo SOAP: Gemini via Vertex AI (resultado do Spike 2)
+- [ ] 0004 — Estratégia de Wake Lock no Safari iOS (resultado do Spike 3)
+- [ ] 0005 — Arquitetura da fila de processamento (BullMQ + Redis no mesmo container)
+- [ ] 0006 — Next.js App Router com Server Components por padrão
+- [ ] 0007 — Estratégia de armazenamento de áudio (chunking em IndexedDB + Cloud Storage)
+- [ ] 0008 — Consolidação do stack em Google Cloud (decisão tomada em 18/04/2026)
+- [x] 0009 — Whisper local (mlx-whisper) avaliado como alternativa de transcrição (2026-06-07)

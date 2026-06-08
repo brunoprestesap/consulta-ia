@@ -87,6 +87,56 @@ Resultado do spike: APROVADO ✅ (critério: ≥ 2 de 2 com WER ≤ 10%)
 - `languageCode: pt-BR`, `enableAutomaticPunctuation`, `diarizationConfig` (2 falantes).
 - `speechContexts` com vocabulário psiquiátrico (`src/vocabulary.ts`).
 
+## Alternativa avaliada: Whisper local (mlx-whisper)
+
+Para comparação com o Google STT, as mesmas amostras foram transcritas **localmente**
+com Whisper large-v3 rodando em MLX (Apple Silicon). Motivações: custo zero e os dados
+clínicos **nunca saem da máquina** (forte para LGPD).
+
+> ⚠️ Gemma/Ollama **não** serve para isto: Gemma é um LLM de texto+visão, não faz ASR,
+> e o Ollama não aceita áudio como entrada. Transcrição local exige um modelo ASR (Whisper).
+
+### Setup
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install mlx-whisper      # baixa o modelo (~3 GB) na 1ª execução
+```
+
+### Uso
+
+```bash
+pnpm transcribe-whisper samples/amostra-01.flac   # uma amostra (aceita .m4a também)
+pnpm run-whisper                                   # lote + tabela comparativa vs Google
+```
+
+O `run-whisper` reaproveita os `results/*-google.txt` existentes para mostrar o WER
+lado a lado. Modelo configurável via `WHISPER_MODEL`.
+
+### Resultado (large-v3, `condition-on-previous-text False`)
+
+| Amostra         | WER Whisper | WER Google | Status            |
+|-----------------|-------------|------------|-------------------|
+| amostra-01      | 8,2%        | 9,2%       | APROVADO          |
+| amostra-02      | 11,2%       | 14,6%      | acima de 10%      |
+| amostra-real-01 | 16,3%       | 24,8%      | acima de 10%      |
+| amostra-real-02 | n/a         | —          | fixture inválido¹ |
+
+**O Whisper local foi melhor que o Google em todas as amostras válidas**, a custo zero e
+sem enviar áudio para fora. Ainda assim, só a amostra-01 fica ≤ 10% — áudio real (ruído,
+sobreposição de falas) é difícil para ambos.
+
+¹ `reference/amostra-real-02.txt` é idêntico ao da real-01 (≈9.964 palavras para 10 min de
+áudio = ~988 wpm, impossível). O áudio `amostra-real-02.m4a` é de outra consulta. O runner
+detecta esse descompasso (`> 250 wpm`) e exclui a amostra do veredito. **Pendente:** gerar
+a referência correta para esse áudio.
+
+### Aprendizado crítico (long-form)
+
+Sem `--condition-on-previous-text False`, o Whisper entra em loop em áudio longo (repete
+`"Não. Não. Não..."` indefinidamente), porque realimenta o próprio texto. Isso jogou o WER
+da amostra-real-01 de **16,3% → 90,4%**. A flag é obrigatória para consultas longas.
+
 ## Próximos passos
 
 Ao concluir o spike, registrar a decisão em `docs/adr/0001-transcription-provider.md` conforme passo 7 da especificação.
