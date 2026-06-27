@@ -152,6 +152,81 @@ simplesmente usar o large-v3 ou turbo como fallback local.
 aproveitamento que o large-v3 com 6× menos latência; instala com `mlx_whisper` sem etapas
 adicionais de conversão.
 
+---
+
+## Extensão: Parakeet TDT v3 e Nemotron 3.5 ASR avaliados (2026-06-27)
+
+Investigação adicional motivada pelo projeto open source [Mac Parakeet](https://github.com/moona3k/macparakeet),
+que usa dois modelos NVIDIA em CoreML: Parakeet TDT v3 (padrão) e Nemotron 3.5 ASR (beta).
+
+### Nemotron 3.5 ASR — avaliado e bloqueado
+
+`nvidia/nemotron-3.5-asr-streaming-0.6b` — Cache-Aware FastConformer-RNNT, 40 línguas, PT-BR com
+WER reportado de **5,48%** no paper (FLEURS PT-BR). Seria o melhor resultado possível se
+acessível. Três barreiras identificadas:
+
+| Caminho | Status | Motivo do bloqueio |
+|---------|--------|--------------------|
+| `transformers` 5.12.1 | ❌ | Arquitetura `nemotron3_5_asr` não reconhecida — classe `Nemotron3_5AsrProcessor` ausente; `ParakeetProcessor` não é compatível |
+| `nemo_toolkit` 2.7.3 | ❌ | Depende de `numba`, que requer Python <3.14; venv usa Python 3.14 |
+| Mac Parakeet CoreML | ❌ | Formato CoreML (Swift-only), não acessível via Python |
+
+**Caminho de desbloqueio:** criar um venv separado com Python 3.10–3.13 e instalar
+`nemo_toolkit[asr]`. O arquivo `nemotron-3.5-asr-streaming-0.6b.nemo` disponível no HuggingFace
+é o formato nativo do NeMo e carregaria via `nemo_asr.models.ASRModel.from_pretrained(...)`.
+Não foi executado neste spike por incompatibilidade de ambiente.
+
+**Parâmetros técnicos inspecionados** (via `processor_config.json`):
+- Sample rate: 16.000 Hz
+- Mel bins: 128, n_fft: 512, hop: 160, win: 400, pre-emphasis: 0,97
+- Prompt token PT-BR: 12 (de 40 línguas disponíveis)
+
+### 3. Parakeet TDT v3 (mlx-community/parakeet-tdt-0.6b-v3) via parakeet-mlx
+
+Modelo irmão do Nemotron — mesma família FastConformer, mas com decoder TDT (em vez de RNNT)
+e 25 línguas europeias (sem PT-BR específico; inclui PT-PT). Testado via `parakeet-mlx` em
+Apple Silicon.
+
+**Instalação:**
+```bash
+pip install parakeet-mlx
+```
+
+**Inferência com chunking (obrigatório para áudio >5 min):**
+```python
+from parakeet_mlx import from_pretrained
+
+model = from_pretrained("mlx-community/parakeet-tdt-0.6b-v3")
+result = model.transcribe(audio_path, chunk_duration=300.0, overlap_duration=10.0)
+```
+
+**Velocidade:** RTF = 0,02× (50× real-time) — ~2 min para 77 min de áudio.
+
+**Resultados:**
+
+| Amostra         | Parakeet TDT | large-v3  | Gemini Flash | Status |
+|-----------------|--------------|-----------|--------------|--------|
+| amostra-01      | 16,0%        | 8,2%      | 7,8%         | ❌      |
+| amostra-02      | 19,4%        | 11,2%     | 5,3%         | ❌      |
+| amostra-real-01 | 19,5%        | 16,3%     | 24,9%        | ❌      |
+| amostra-real-02 | 19,5%        | 18,4%     | 24,4%        | ❌      |
+| Aprovados       | **0/4**      | 1/4       | **2/4**      |        |
+
+**Conclusão Parakeet TDT:** 0/4 aprovados. WER consistentemente ~19% — esperado, pois o
+modelo foi treinado em PT-PT, não PT-BR. O modelo é notavelmente rápido (50× real-time) e
+funcional em português, mas não atinge o critério ≤ 10%. Caso Nemotron 3.5 ASR (PT-BR)
+seja desbloqueado via NeMo + Python 3.12, o WER ~5,5% justificaria retestar.
+
+**Tabela comparativa completa com Parakeet TDT:**
+
+| Amostra         | large-v3  | turbo   | Gemini Flash  | PT-BR CT2 | Parakeet TDT | Google STT |
+|-----------------|-----------|---------|---------------|-----------|--------------|------------|
+| amostra-01      | 8,2% ✅   | 9,2% ✅  | **7,8% ✅**  | 9,9% ✅   | 16,0% ❌    | 9,2% ✅    |
+| amostra-02      | 11,2% ❌  | 10,7% ❌ | **5,3% ✅**  | 10,2% ❌  | 19,4% ❌    | 14,6% ❌   |
+| amostra-real-01 | **16,3%** ❌ | 16,0% ❌ | 24,9% ❌  | 19,5% ❌  | 19,5% ❌    | 24,8% ❌   |
+| amostra-real-02 | **18,4%** ❌ | 22,6% ❌ | 24,4% ❌  | 21,3% ❌  | 19,5% ❌    | 24,0% ❌   |
+| Aprovados       | 1/4       | 1/4     | **2/4 ✅**    | 1/4       | 0/4          | 1/4        |
+
 ## Consequências
 
 ### Positivas
@@ -198,9 +273,13 @@ produzem output truncado — não usar para este modelo específico.
 - ADR 0010 — Gemini 2.5 Flash como engine de transcrição (decisão atual)
 - ADR 0007 — Consolidação do stack em Google Cloud
 - Spike 1 — `spikes/01-transcription/` (scripts `transcribe-whisper.ts`, `run-whisper.ts`,
-  `transcribe_ptbr.py`, `convert_to_mlx.py`, `run-whisper-new-models.ts`)
+  `transcribe_ptbr.py`, `convert_to_mlx.py`, `run-whisper-new-models.ts`,
+  `transcribe_parakeet.py`, `run-parakeet.ts`)
 - [mlx-whisper](https://github.com/ml-explore/mlx-examples/tree/main/whisper) — Whisper em Apple MLX
 - [faster-whisper](https://github.com/guillaumekln/faster-whisper) — CTranslate2 backend
+- [parakeet-mlx](https://github.com/senstella/parakeet-mlx) — Parakeet TDT em Apple MLX
 - Modelo baseline: `mlx-community/whisper-large-v3-mlx` (Hugging Face)
 - Modelo turbo: `mlx-community/whisper-large-v3-turbo` (Hugging Face)
 - Modelo PT-BR: `fsicoli/whisper-large-v3-pt-3000h-4` → `models/whisper-ptbr-ct2-f16/`
+- Modelo Parakeet: `mlx-community/parakeet-tdt-0.6b-v3` (PT-PT, HuggingFace)
+- Nemotron: `nvidia/nemotron-3.5-asr-streaming-0.6b` (PT-BR, HuggingFace — requer NeMo + Python ≤3.13)
