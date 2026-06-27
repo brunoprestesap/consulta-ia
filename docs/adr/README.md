@@ -21,14 +21,20 @@ Template mínimo em [`_template.md`](./_template.md).
 - Toda vez que uma decisão de arquitetura (banco, fila, modelo de dados) for tomada.
 - NÃO criar ADR para decisões triviais (ex: escolha de lib de utilitário menor).
 
-## ADRs esperados no início do projeto
+## ADRs existentes
 
-- [x] 0001 — Provider de transcrição (resultado do Spike 1)
-- [x] 0002 — Processamento de áudio clínico real no Spike 1 sem DPA formal (compliance, 2026-04-21)
-- [ ] 0003 — LLM primário para resumo SOAP: Gemini via Vertex AI (resultado do Spike 2)
+| # | Título | Status |
+|---|--------|--------|
+| [0001](0001-transcription-provider.md) | Provider de transcrição PT-BR | substituído por 0010 |
+| [0002](0002-audio-clinico-real-spike1.md) | Processamento de áudio clínico real no Spike 1 sem DPA formal | aceito |
+| [0003](0003-llm-resumo-soap.md) | LLM primário para geração de resumo SOAP psiquiátrico | proposto (preview validado; Spike 2 formal pendente) |
+| [0009](0009-whisper-local-alternativa-transcricao.md) | Whisper local (mlx-whisper) avaliado como alternativa de transcrição | aceito |
+| [0010](0010-gemini-flash-engine-transcricao.md) | Gemini 2.5 Flash como engine de transcrição PT-BR | aceito |
+
+## ADRs pendentes (para criar quando implementados)
+
 - [ ] 0004 — Estratégia de Wake Lock no Safari iOS (resultado do Spike 3)
 - [ ] 0005 — Arquitetura da fila de processamento (BullMQ + Redis no mesmo container)
 - [ ] 0006 — Next.js App Router com Server Components por padrão
 - [ ] 0007 — Estratégia de armazenamento de áudio (chunking em IndexedDB + Cloud Storage)
 - [ ] 0008 — Consolidação do stack em Google Cloud (decisão tomada em 18/04/2026)
-- [x] 0009 — Whisper local (mlx-whisper) avaliado como alternativa de transcrição (2026-06-07)

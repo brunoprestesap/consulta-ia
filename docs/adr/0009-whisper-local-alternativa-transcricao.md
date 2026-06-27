@@ -1,7 +1,8 @@
 # ADR 0009 — Whisper local (mlx-whisper) avaliado como alternativa de transcrição
 
 **Data:** 2026-06-07
-**Status:** aceito — Google STT permanece o provider primário (ADR 0001 / ADR 0007); Whisper local registrado como alternativa validada e fallback estratégico
+**Atualizado:** 2026-06-27
+**Status:** aceito — Gemini 2.5 Flash é o provider primário (ADR 0010); Whisper local registrado como melhor opção para áudio real e fallback estratégico
 
 ---
 
@@ -20,17 +21,16 @@ viável:** Gemma é um LLM de texto+visão, não faz ASR (speech-to-text), e o O
 caminho natural é **Whisper large-v3 rodando em MLX** (`mlx-whisper`).
 
 As mesmas amostras do Spike 1 foram reprocessadas localmente e o WER comparado, lado a lado,
-com os resultados já existentes do Google.
+com os resultados já existentes do Google e, depois, do Gemini 2.5 Flash.
 
 ## Decisão
 
-**Manter o Google Cloud Speech-to-Text como provider primário** (coerente com a consolidação
-em Google Cloud — ADR 0007 — e com a arquitetura serverless em Cloud Run, sem GPU).
+**Manter Gemini 2.5 Flash como provider primário** (ver ADR 0010).
 
-**Registrar o Whisper local (large-v3 / MLX) como alternativa tecnicamente validada e
-fallback estratégico**, a ser reconsiderada se: (a) o WER do Google estagnar acima de 10%
-em mais amostras, (b) custo de transcrição escalar, ou (c) requisitos de LGPD endurecerem a
-ponto de exigir processamento on-premise.
+**Registrar o Whisper local (large-v3 / MLX) como melhor engine para áudio real de consulta
+e fallback estratégico**, a ser reconsiderado se: (a) requisitos de LGPD endurecerem a ponto
+de exigir processamento on-premise, (b) a arquitetura serverless for revisada para incluir
+worker com GPU, ou (c) o WER do Gemini em áudio real não melhorar com ajustes de prompt.
 
 Configuração obrigatória do Whisper para áudio longo: **`--condition-on-previous-text False`**
 (ver Consequências). Implementação descartável do spike em
@@ -40,42 +40,127 @@ Configuração obrigatória do Whisper para áudio longo: **`--condition-on-prev
 
 - **Gemma via Ollama** — inviável. Gemma não é modelo ASR; Ollama não aceita áudio. Descartado.
 - **Whisper large-v3 (MLX)** — escolhido para a avaliação. Melhor WER que o Google em todas
-  as amostras válidas, custo zero, dados locais.
+  as amostras; melhor que o Gemini em áudio real longo.
 - **faster-whisper (CTranslate2) com VAD integrado** — não avaliado neste spike. Candidato
   caso se decida adotar Whisper em produção, pela segmentação por VAD (Silero) que tende a
   ser mais robusta que a flag `condition-on-previous-text` para áudio muito longo.
 - **whisper.cpp (Core ML/Metal)** — não avaliado; alternativa sem dependência de Python.
 
-## Resultado da avaliação
+## Resultado da avaliação (tabela completa — atualizada em 2026-06-27)
 
 Whisper large-v3 (MLX), `condition-on-previous-text False`, vocabulário psiquiátrico via
-`initial-prompt`:
+`initial-prompt`. Referência de amostra-real-02 corrigida manualmente após identificação de
+fixture trocado (era idêntico à real-01; corrigido com transcrição manual da consulta correta).
 
-| Amostra         | WER Whisper | WER Google | Observação                          |
-|-----------------|-------------|------------|-------------------------------------|
-| amostra-01      | 8,2%        | 9,2%       | ≤ 10%, melhor que Google            |
-| amostra-02      | 11,2%       | 14,6%      | acima de 10%, melhor que Google     |
-| amostra-real-01 | 16,3%       | 24,8%      | áudio real de 77 min; bem melhor    |
-| amostra-real-02 | n/a         | —          | fixture inválido, excluído¹         |
+| Amostra         | WER Whisper | WER Gemini Flash | WER Google | Observação                       |
+|-----------------|-------------|------------------|------------|----------------------------------|
+| amostra-01      | 8,2%        | 7,8%             | 9,2%       | ≤ 10%, todos aprovam             |
+| amostra-02      | 11,2%       | **5,3%**         | 14,6%      | só Gemini passa                  |
+| amostra-real-02 | **18,4%**   | 24,4%            | 24,0%      | Whisper melhor; nenhum passa     |
+| amostra-real-01 | **16,3%**   | 24,9%            | 24,8%      | Whisper melhor; nenhum passa     |
 
-Whisper foi **consistentemente melhor que o Google** nas amostras válidas, a custo zero e
-sem enviar áudio para fora. Ainda assim, só a amostra-01 fica ≤ 10% — áudio real (ruído,
-sobreposição de falas) é difícil para ambos os motores.
+**Padrão claro:** Gemini domina em áudio simulado/curto; Whisper domina em áudio real/longo.
+Nenhum engine atinge ≤ 10% em áudio real de consultório.
 
-¹ `reference/amostra-real-02.txt` está trocado: é idêntico ao da real-01 (≈9.964 palavras
-para 10 min de áudio = ~988 wpm, fisicamente impossível). O áudio `amostra-real-02.m4a` é de
-outra consulta. O `run-whisper` detecta o descompasso (> 250 wpm) e exclui a amostra do
-veredito. **Pendência:** gerar a referência correta para esse áudio.
+---
+
+## Extensão: novos modelos avaliados (2026-06-27)
+
+Após aprovação formal do Spike 1 (ADR 0010), dois modelos adicionais foram avaliados para
+verificar se superariam o baseline large-v3 ou o Gemini:
+
+### 1. whisper-large-v3-turbo (MLX)
+
+`mlx-community/whisper-large-v3-turbo` — versão turbo do large-v3 (encoder 4 camadas vs 32),
+aproximadamente 6× mais rápido, com margem de WER de ≤ 2 pontos percentuais conforme paper.
+
+| Amostra         | large-v3 | turbo    | Δ       | Status     |
+|-----------------|----------|----------|---------|------------|
+| amostra-01      | 8,2%     | 9,2%     | +1,0 pp | turbo ✅   |
+| amostra-02      | 11,2%    | 10,7%    | –0,5 pp | nenhum ❌  |
+| amostra-real-01 | 16,3%    | 16,0%    | –0,3 pp | nenhum ❌  |
+| amostra-real-02 | 18,4%    | 22,6%    | +4,2 pp | nenhum ❌  |
+
+**Conclusão turbo:** 1/4 aprovado (amostra-01), mesmo que baseline. Turbo é marginalmente
+melhor em 3/4 amostras, mas piora em amostra-real-02 (+4,2 pp). Velocidade 6× é relevante
+para uso local de dev; não altera a decisão de provider em produção.
+
+### 2. fsicoli/whisper-large-v3-pt-3000h-4 (CT2 float16, compute int8)
+
+Modelo fine-tuned em ~3.000 h de dados PT-BR (Common Voice 17, FLEURS, CORAA, MLS, TED-BR).
+Convertido com `ct2-transformers-converter` para CTranslate2 float16.
+
+**Bugs críticos encontrados e corrigidos:**
+
+| Bug | Causa | Fix |
+|-----|-------|-----|
+| Saída em inglês | Task tokens invertidos: `transcribe=50360`, `translate=50359` (padrão Whisper tem 50359/50360 trocados) | Incluir `generation_config.json` na conversão (`--copy_files generation_config.json`) |
+| Mel bins errados (80 em vez de 128) | `preprocessor_config.json` ausente no dir do modelo | Incluir `preprocessor_config.json` na conversão |
+| `ValueError` float16 em CPU | CTranslate2 não suporta `compute_type="float16"` em CPU | Usar `compute_type="int8"` (requantiza pesos float16 → int8 para compute) |
+
+**Conversão correta:**
+```bash
+ct2-transformers-converter \
+  --model fsicoli/whisper-large-v3-pt-3000h-4 \
+  --output_dir models/whisper-ptbr-ct2-f16 \
+  --copy_files tokenizer.json preprocessor_config.json generation_config.json \
+  --quantization float16
+```
+
+**Inferência:**
+```python
+model = WhisperModel("models/whisper-ptbr-ct2-f16", device="cpu", compute_type="int8")
+# preprocessor_config.json lido automaticamente → feature_size=128
+# generation_config.json lido automaticamente → task_to_id correto
+```
+
+**Tentativa de conversão MLX:** desenvolvido `src/convert_to_mlx.py` com remapeamento completo
+de chaves HF Transformers → OpenAI Whisper (strips `model.`, remapeia `self_attn.*` → `attn.*`,
+`fc1/fc2` → `mlp1/mlp2`, transpõe conv1/conv2 de `(out,in,k)` → `(out,k,in)`, salva em float16).
+**Modelo carrega mas produz output truncado/incorreto**: mlx-whisper força task token 50359
+(=translate neste modelo) e não há suporte a `generation_config.json`. O fix do CT2 não é
+portável para MLX. **MLX path descartado para este modelo.**
+
+**Resultados do modelo PT-BR CT2:**
+
+| Amostra         | large-v3  | pt-3000h CT2 | Δ       | Status        |
+|-----------------|-----------|--------------|---------|---------------|
+| amostra-01      | 8,2%      | **9,9%**     | +1,7 pp | CT2 ✅ (9,9%) |
+| amostra-02      | 11,2%     | 10,2%        | –1,0 pp | nenhum ❌     |
+| amostra-real-01 | **16,3%** | 19,5%        | +3,2 pp | nenhum ❌     |
+| amostra-real-02 | **18,4%** | 21,3%        | +2,9 pp | nenhum ❌     |
+
+Velocidade (CPU): real-02 em 228,9s para 605s de áudio (38% do tempo real); real-01 em 2.232s
+para 4.630s (48% do tempo real).
+
+**Conclusão PT-BR CT2:** 1/4 aprovado (mesma taxa que o baseline), sem melhoria sobre o
+large-v3. Em áudio real, o fine-tuned é consistentemente pior que o large-v3 (+3pp). O modelo
+não justifica a complexidade adicional do pipeline (bugs de token, mel bins, compute type) vs.
+simplesmente usar o large-v3 ou turbo como fallback local.
+
+**Resumo comparativo final (todos os modelos avaliados no Spike 1):**
+
+| Amostra         | large-v3  | turbo     | Gemini Flash  | PT-BR CT2 | Google STT |
+|-----------------|-----------|-----------|---------------|-----------|------------|
+| amostra-01      | 8,2% ✅   | 9,2% ✅   | **7,8% ✅**   | 9,9% ✅   | 9,2% ✅    |
+| amostra-02      | 11,2% ❌  | 10,7% ❌  | **5,3% ✅**   | 10,2% ❌  | 14,6% ❌   |
+| amostra-real-01 | **16,3%** ❌ | 16,0% ❌ | 24,9% ❌     | 19,5% ❌  | 24,8% ❌   |
+| amostra-real-02 | **18,4%** ❌ | 22,6% ❌ | 24,4% ❌     | 21,3% ❌  | 24,0% ❌   |
+| Aprovados       | 1/4       | 1/4       | **2/4 ✅**    | 1/4       | 1/4        |
+
+**Para fallback local (sem GPU), recomendação:** `whisper-large-v3-turbo` (MLX) — mesmo
+aproveitamento que o large-v3 com 6× menos latência; instala com `mlx_whisper` sem etapas
+adicionais de conversão.
 
 ## Consequências
 
 ### Positivas
-- **Alternativa de transcrição validada** com WER melhor que o provider atual em todas as
-  amostras comparáveis, a custo marginal zero.
+- **Melhor engine para áudio real:** Whisper atinge 16,3% e 18,4% nas consultas reais vs
+  24–25% do Google e do Gemini. Se o critério WER for revisto para áudio real, Whisper é a
+  escolha natural.
 - **Residência de dados máxima:** áudio nunca sai da máquina — opção forte caso a LGPD/jurídico
   endureça requisitos.
-- **Independência de billing e de disponibilidade regional de API** (o gargalo de v2/chirp_2
-  fora do BR descrito no ADR 0001 deixa de existir).
+- **Custo zero por minuto** e independência de billing/API.
 
 ### Negativas / riscos
 - **Conflita com a arquitetura serverless atual:** Cloud Run não tem GPU e o modelo (~3 GB)
@@ -85,20 +170,37 @@ veredito. **Pendência:** gerar a referência correta para esse áudio.
   o próprio texto e entra em loop infinito (`"Não. Não. Não..."`), derrubando o WER da
   amostra-real-01 de **16,3% → 90,4%**. A flag é obrigatória; para áudio muito longo, VAD
   (faster-whisper) seria mais robusto.
-- **Vocabulário médico ainda imperfeito** (mesmo limite do Google), mitigado parcialmente pelo
-  `initial-prompt` com os termos psiquiátricos.
 - **Latência local:** ~7 min de processamento para 77 min de áudio no Apple Silicon de dev;
   varia conforme hardware do worker em produção.
 
 ### Neutras / a monitorar
-- Decisão atrelada ao ADR 0007 (consolidação Google Cloud). Se a estratégia de provedor único
-  for revista, o Whisper local sobe de "fallback" para candidato real a primário.
+- Se a arquitetura de produção for revisada para incluir worker dedicado (com GPU ou Apple
+  Silicon), Whisper sobe de fallback para candidato real a primário para áudio longo.
 - Se faster-whisper + VAD for avaliado e superar a robustez da flag, atualizar esta decisão.
+- Disponibilidade futura de modelos fine-tuned PT-BR sem o bug de task token invertido —
+  testar com `generation_config.json` correto e avaliar se o WER melhora vs baseline.
+
+### Observações de implementação (extensão 2026-06-27)
+
+**faster-whisper (CT2) com modelo fine-tuned PT-BR:** requer todos os arquivos auxiliares
+no diretório do modelo. Sem `generation_config.json`, o modelo produz saída em inglês
+(tokens de task invertidos). Sem `preprocessor_config.json`, usa 80 mel bins e falha.
+Usar sempre `compute_type="int8"` em CPU (float16 não é suportado).
+
+**mlx-whisper com modelos fine-tuned HuggingFace:** conversão de pesos é possível via
+`src/convert_to_mlx.py` (remapeia chaves HF → OpenAI, transpõe conv1/conv2, salva float16).
+Mas modelos com task tokens invertidos (`generation_config.json` não lido pelo mlx-whisper)
+produzem output truncado — não usar para este modelo específico.
 
 ## Referências
 
-- ADR 0001 — Provider de transcrição PT-BR (Google STT, decisão primária)
+- ADR 0001 — Provider de transcrição PT-BR (histórico, substituído por ADR 0010)
+- ADR 0010 — Gemini 2.5 Flash como engine de transcrição (decisão atual)
 - ADR 0007 — Consolidação do stack em Google Cloud
-- Spike 1 — `spikes/01-transcription/` (scripts `transcribe-whisper.ts`, `run-whisper.ts`, README com setup e tabela)
+- Spike 1 — `spikes/01-transcription/` (scripts `transcribe-whisper.ts`, `run-whisper.ts`,
+  `transcribe_ptbr.py`, `convert_to_mlx.py`, `run-whisper-new-models.ts`)
 - [mlx-whisper](https://github.com/ml-explore/mlx-examples/tree/main/whisper) — Whisper em Apple MLX
-- Modelo: `mlx-community/whisper-large-v3-mlx` (Hugging Face)
+- [faster-whisper](https://github.com/guillaumekln/faster-whisper) — CTranslate2 backend
+- Modelo baseline: `mlx-community/whisper-large-v3-mlx` (Hugging Face)
+- Modelo turbo: `mlx-community/whisper-large-v3-turbo` (Hugging Face)
+- Modelo PT-BR: `fsicoli/whisper-large-v3-pt-3000h-4` → `models/whisper-ptbr-ct2-f16/`

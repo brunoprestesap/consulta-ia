@@ -43,6 +43,7 @@ async function probeDuration(audioPath: string): Promise<number> {
 export async function transcribeWhisper(
   audioPath: string,
   model: string = DEFAULT_MODEL,
+  outputLabel: string = 'whisper',
 ): Promise<WhisperResult> {
   if (!fs.existsSync(audioPath)) {
     throw new Error(`Arquivo não encontrado: ${audioPath}`);
@@ -90,7 +91,7 @@ export async function transcribeWhisper(
 
     const resultsDir = path.resolve('results');
     fs.mkdirSync(resultsDir, { recursive: true });
-    const outputPath = path.join(resultsDir, `${stem}-whisper.txt`);
+    const outputPath = path.join(resultsDir, `${stem}-${outputLabel}.txt`);
     fs.writeFileSync(outputPath, text);
 
     console.log(

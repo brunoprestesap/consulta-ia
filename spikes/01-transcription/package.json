@@ -13,11 +13,16 @@
     "wer": "tsx src/compute-wer.ts",
     "run-all": "tsx src/run-all.ts",
     "run-whisper": "tsx src/run-whisper.ts",
+    "transcribe-gemini": "tsx src/transcribe-gemini.ts",
+    "run-gemini": "tsx src/run-gemini.ts",
+    "run-whisper-new": "tsx src/run-whisper-new-models.ts",
+    "soap": "tsx src/soap.ts",
     "test": "node --import tsx --test src/compute-wer.test.ts"
   },
   "dependencies": {
     "@google-cloud/speech": "^6.7.0",
     "@google-cloud/storage": "^7.14.0",
+    "@google/genai": "^2.10.0",
     "dotenv": "^16.4.5"
   },
   "devDependencies": {
