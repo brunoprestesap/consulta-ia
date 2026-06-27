@@ -16,14 +16,18 @@
     "transcribe-gemini": "tsx src/transcribe-gemini.ts",
     "run-gemini": "tsx src/run-gemini.ts",
     "run-whisper-new": "tsx src/run-whisper-new-models.ts",
+    "run-tier1": "tsx src/run-tier1-cloud.ts",
     "soap": "tsx src/soap.ts",
     "test": "node --import tsx --test src/compute-wer.test.ts"
   },
   "dependencies": {
+    "@deepgram/sdk": "^5.5.0",
     "@google-cloud/speech": "^6.7.0",
     "@google-cloud/storage": "^7.14.0",
     "@google/genai": "^2.10.0",
-    "dotenv": "^16.4.5"
+    "cohere-ai": "^8.0.0",
+    "dotenv": "^16.4.5",
+    "elevenlabs": "^1.59.0"
   },
   "devDependencies": {
     "@types/node": "^22.9.0",

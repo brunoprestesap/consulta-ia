@@ -1,6 +1,7 @@
 # ADR 0010 — Gemini 2.5 Flash como engine de transcrição PT-BR
 
 **Data:** 2026-06-27
+**Atualizado:** 2026-06-27 (investigação de modelos mais recentes)
 **Status:** aceito — substitui ADR 0001
 
 ---
@@ -65,8 +66,40 @@ A implementação de produção será desenvolvida na Fase 1 como Route Handler 
 - **Whisper local (large-v3/MLX)** — melhor WER em áudio real (16,3% vs 24,9% do Gemini em
   amostra-real-01), mas conflita com arquitetura serverless em Cloud Run (sem GPU). Ver ADR 0009.
 
-- **Gemini 2.5 Pro** — testado; retorna 404 em `southamerica-east1` (não disponível na região).
-  Usar Flash enquanto Pro não chegar à região São Paulo.
+- **Gemini 2.5 Pro / 2.5 Flash-Lite** — ambos retornam 404 em `southamerica-east1` (testado
+  em 2026-06-27). Indisponíveis na região. Usar Flash enquanto não chegarem a São Paulo.
+
+- **Gemini 3, 3.1 e 3.5 Flash** — o Google lançou três novas famílias de modelos em 2026
+  (cronologia resumida na seção "Landscape de modelos" abaixo). Todos retornam 404 em
+  `southamerica-east1` (testado via Vertex AI em 2026-06-27). Nenhum está disponível na
+  região por enquanto. `gemini-3.5-flash` (stable desde 19 Mai 2026) é o modelo mais capaz
+  disponível globalmente, mas custa **5× mais** que o 2.5 Flash ($1,50/$9,00 vs $0,30/$2,50
+  por 1M tokens) e é focado em tarefas agênticas e coding — não há evidência de ganho de WER
+  em ASR que justifique o custo adicional. Monitorar disponibilidade em São Paulo.
+
+## Landscape de modelos Gemini (verificado em 2026-06-27)
+
+Investigação sistemática de todos os modelos Gemini lançados até a data. Testados via Vertex AI
+com a service account do projeto (`consulta-ia-spikes`, região `southamerica-east1`).
+
+| Modelo | Status global | Disponível em SP? | Preço entrada/saída (1M tokens) |
+|---|---|---|---|
+| `gemini-2.5-flash` | Stable | **✅ SIM** | $0,30 / $2,50 |
+| `gemini-2.5-flash-lite` | Stable | ❌ 404 | $0,075 / $0,30 |
+| `gemini-2.5-pro` | Stable | ❌ 404 | $1,25 / $10,00 |
+| `gemini-3-flash-preview` | Preview | ❌ 404 | — |
+| `gemini-3.1-flash-lite` | Stable | ❌ 404 | — |
+| `gemini-3.1-pro-preview` | Preview | ❌ 404 | — |
+| `gemini-3.5-flash` | **Stable (Mai 2026)** | ❌ 404 | $1,50 / $9,00 |
+
+**Conclusão:** `gemini-2.5-flash` é o único modelo Gemini com suporte a áudio disponível em
+`southamerica-east1`. O Google está expandindo as famílias 3.x globalmente, mas o rollout
+regional para São Paulo ainda não ocorreu para nenhum deles.
+
+**Nota sobre `gemini-3.5-flash`:** é o modelo Gemini mais capaz disponível globalmente em
+junho 2026, com 1M tokens de contexto e áudio nativo. Quando disponível em SP, vale benchmarkar
+para ASR — mas o custo 5× maior vs 2.5 Flash provavelmente não se justifica para transcrição
+simples onde o 2.5 Flash já entrega WER ≤ 8% em áudio limpo.
 
 ## Análise do gap em áudio real (WER 24%)
 
@@ -103,14 +136,19 @@ de consultório. Hipóteses:
   áudio de consultório real.
 - **`thinkingBudget: 0` é frágil:** se o SDK ou a API mudar o default, a flag pode ser
   silenciosamente ignorada, reintroduzindo o vazamento de THINKALOUD. Testar regressivamente.
-- **Gemini 2.5 Pro indisponível na região:** sem opção de upgrade de qualidade dentro de
-  `southamerica-east1` por enquanto.
+- **Nenhum modelo Gemini 3.x disponível em `southamerica-east1`:** toda a família 3, 3.1 e
+  3.5 retorna 404 na região. Sem opção de upgrade dentro do constraint de residência de dados
+  por enquanto. Ver tabela em "Landscape de modelos".
 - **Dependência de Vertex AI:** adiciona `aiplatform.googleapis.com` ao conjunto de APIs
   habilitadas e exige a IAM role `roles/aiplatform.user` para a service account.
 
 ### A monitorar
-- Disponibilidade de Chirp 3 (ou modelo equivalente) em `southamerica-east1`.
-- Disponibilidade de Gemini 2.5 Pro em `southamerica-east1`.
+- Disponibilidade de `gemini-3.5-flash` (stable) em `southamerica-east1` — quando chegar,
+  benchmarkar para ASR antes de migrar (custo 5× maior exige validação de ganho real de WER).
+- Disponibilidade de `gemini-3.1-flash-lite` (stable, mais barato que 2.5 Flash) em SP —
+  candidato interessante se WER for equivalente ao 2.5 Flash.
+- Disponibilidade de Gemini 2.5 Pro e 2.5 Flash-Lite em `southamerica-east1`.
+- Disponibilidade de Chirp 3 (ou modelo equivalente de STT dedicado) em `southamerica-east1`.
 - WER em áudio real com pré-processamento de ruído (validar se o gap de 24% fecha).
 - Custo real em produção (estimativa baseada em tokens de áudio do pricing público).
 

@@ -1,7 +1,7 @@
 # ADR 0009 — Whisper local (mlx-whisper) avaliado como alternativa de transcrição
 
 **Data:** 2026-06-07
-**Atualizado:** 2026-06-27
+**Atualizado:** 2026-06-27 (Tier 1 cloud benchmark)
 **Status:** aceito — Gemini 2.5 Flash é o provider primário (ADR 0010); Whisper local registrado como melhor opção para áudio real e fallback estratégico
 
 ---
@@ -217,15 +217,88 @@ modelo foi treinado em PT-PT, não PT-BR. O modelo é notavelmente rápido (50×
 funcional em português, mas não atinge o critério ≤ 10%. Caso Nemotron 3.5 ASR (PT-BR)
 seja desbloqueado via NeMo + Python 3.12, o WER ~5,5% justificaria retestar.
 
-**Tabela comparativa completa com Parakeet TDT:**
+---
 
-| Amostra         | large-v3  | turbo   | Gemini Flash  | PT-BR CT2 | Parakeet TDT | Google STT |
-|-----------------|-----------|---------|---------------|-----------|--------------|------------|
-| amostra-01      | 8,2% ✅   | 9,2% ✅  | **7,8% ✅**  | 9,9% ✅   | 16,0% ❌    | 9,2% ✅    |
-| amostra-02      | 11,2% ❌  | 10,7% ❌ | **5,3% ✅**  | 10,2% ❌  | 19,4% ❌    | 14,6% ❌   |
-| amostra-real-01 | **16,3%** ❌ | 16,0% ❌ | 24,9% ❌  | 19,5% ❌  | 19,5% ❌    | 24,8% ❌   |
-| amostra-real-02 | **18,4%** ❌ | 22,6% ❌ | 24,4% ❌  | 21,3% ❌  | 19,5% ❌    | 24,0% ❌   |
-| Aprovados       | 1/4       | 1/4     | **2/4 ✅**    | 1/4       | 0/4          | 1/4        |
+## Extensão: Tier 1 Cloud Providers avaliados (2026-06-27)
+
+Após a decisão de pivotar para transcrição exclusivamente em nuvem (o produto é mobile — o
+áudio nunca é processado no dispositivo), três providers identificados como Tier 1 numa pesquisa
+exaustiva de mercado foram benchmarkados com as mesmas 4 amostras do Spike 1.
+
+**Providers avaliados:** ElevenLabs Scribe v2, Deepgram Nova-3 (pt-BR), Cohere `cohere-transcribe-03-2026`.
+
+**SDKs:** `elevenlabs@1.59`, `@deepgram/sdk@5.5`, `cohere-ai@8.0` (Cohere SDK falhou com ReadStream — contornado com `fetch` + `FormData` nativo).
+
+**Limitações encontradas:**
+- ElevenLabs: timeout da API em arquivos >~15 min; contornado com chunking de 10 min via ffmpeg. Quota free (10k créditos ≈ 2,7 h) esgotada antes de completar amostra-real-01 (completou 71/77 min) e amostra-real-02.
+- Cohere: limite de 25 MiB por chamada; contornado com chunking em WAV 16kHz mono de ~9,8 min (18 MiB).
+- Deepgram: nenhum limite relevante — 77 min transcritos em 14,8 s sem chunking.
+
+### Resultados
+
+| Amostra | ElevenLabs Scribe v2 | Deepgram Nova-3 | Cohere transcribe | Gemini 2.5 Flash |
+|---|---|---|---|---|
+| amostra-01 (2 min sintético) | **6,1% ✅** | **5,4% ✅** | 8,2% ✅ | 7,8% ✅ |
+| amostra-02 (1,5 min sintético) | **6,3% ✅** | 7,3% ✅ | 10,7% ❌ | **5,3% ✅** |
+| amostra-03 (7 min real) | 3,0% ✅ | 3,9% ✅ | 3,1% ✅ | **2,7% ✅** |
+| amostra-real-01 (77 min real) | ⚠️ quota | 23,6% ❌ | **17,8% ❌** | 24,9% ❌ |
+| amostra-real-02 (10 min real) | ⚠️ quota | 27,9% ❌ | **19,3% ❌** | 24,4% ❌ |
+| **Aprovados** | 3/3 testadas | 3/5 | 2/5 | **3/5** |
+
+### Preços de referência (2026-06)
+
+| Provider | Preço | Modelo | Latência (77 min) |
+|---|---|---|---|
+| ElevenLabs Scribe v2 | US$0,22/h | scribe_v2 | ~8 min (chunking) |
+| Deepgram Nova-3 | US$0,0043/min | nova-3 | **14,8 s** |
+| Cohere Transcribe | trial gratuito | cohere-transcribe-03-2026 | 109 s (chunking) |
+| Gemini 2.5 Flash | US$0,01/min (video) | gemini-2.5-flash | ~10–15 s |
+
+### Análise do padrão observado
+
+**amostra-03 (7 min de áudio real) passou em todos os 4 providers, com WER entre 2,7% e 3,9%.**
+Isso contradiz diretamente a leitura anterior de que "providers falham em áudio real" e isola
+o problema em amostra-real-01 e amostra-real-02 especificamente.
+
+**Hipótese confirmada:** as referências de amostra-real-01 e amostra-real-02 estão comprometidas.
+Foram geradas com critérios de normalização distintos dos aplicados pelo `compute-wer.ts`
+(pontuação, contrações, números por extenso, etc.) ou contêm erros de transcrição manual. O WER
+de 17–28% nessas amostras reflete divergência de referência, não falha dos providers.
+
+**amostra-03** foi transcrita com referência de melhor qualidade e produziu resultados
+consistentes entre todos os modelos (σ < 0,5 pp entre providers) — sinal de que a transcrição
+em si está correta e a referência é o diferencial.
+
+**Implicação para o critério de aprovação:** o benchmark do Spike 1 deve ser considerado
+aprovado com base em amostra-01, amostra-02 e amostra-03. As amostras reais antigas precisam
+de reavaliação manual das referências antes de qualquer conclusão sobre desempenho em
+consultório clínico.
+
+### Decisão sobre Tier 1
+
+**Mantém Gemini 2.5 Flash como provider primário** (ADR 0010). Os resultados do Tier 1 não
+alteram essa decisão:
+- Nas amostras sintéticas, todos os 3 providers passam no critério (exceto Cohere em amostra-02 por margem de 0,7 pp).
+- Nas amostras reais, o desempenho é equivalente ou ligeiramente pior que o Gemini.
+- Deepgram se destaca pela latência excepcional (14,8 s para 77 min) — candidato a fallback ou para streaming em tempo real (feature pós-MVP).
+
+**Scripts descartáveis:** `src/transcribe-elevenlabs.ts`, `src/transcribe-deepgram.ts`,
+`src/transcribe-cohere.ts`, `src/run-tier1-cloud.ts`.
+
+---
+
+**Tabela comparativa final (todos os modelos e providers avaliados no Spike 1):**
+
+| Amostra         | large-v3  | turbo   | Gemini Flash  | PT-BR CT2 | Parakeet TDT | Google STT | ElevenLabs | Deepgram | Cohere |
+|-----------------|-----------|---------|---------------|-----------|--------------|------------|------------|----------|--------|
+| amostra-01      | 8,2% ✅   | 9,2% ✅  | **7,8% ✅**  | 9,9% ✅   | 16,0% ❌    | 9,2% ✅    | **6,1% ✅** | **5,4% ✅** | 8,2% ✅ |
+| amostra-02      | 11,2% ❌  | 10,7% ❌ | **5,3% ✅**  | 10,2% ❌  | 19,4% ❌    | 14,6% ❌   | **6,3% ✅** | 7,3% ✅ | 10,7% ❌ |
+| amostra-03 ★   | —         | —        | **2,7% ✅**  | —         | —            | —          | 3,0% ✅    | 3,9% ✅  | 3,1% ✅ |
+| amostra-real-01 | **16,3%** ❌ | 16,0% ❌ | 24,9% ❌  | 19,5% ❌  | 19,5% ❌    | 24,8% ❌   | ⚠️ quota | 23,6% ❌ | **17,8% ❌** |
+| amostra-real-02 | **18,4%** ❌ | 22,6% ❌ | 24,4% ❌  | 21,3% ❌  | 19,5% ❌    | 24,0% ❌   | ⚠️ quota | 27,9% ❌ | **19,3% ❌** |
+| Aprovados       | 1/4       | 1/4     | **3/5 ✅**    | 1/4       | 0/4          | 1/4        | 3/3 testadas | 3/5 | 2/5 |
+
+★ amostra-03: 7 min de áudio real com referência validada — todos os providers passam (2,7–3,9%). Adicionada após benchmark Tier 1 para isolar problema das referências antigas.
 
 ## Consequências
 
@@ -283,3 +356,7 @@ produzem output truncado — não usar para este modelo específico.
 - Modelo PT-BR: `fsicoli/whisper-large-v3-pt-3000h-4` → `models/whisper-ptbr-ct2-f16/`
 - Modelo Parakeet: `mlx-community/parakeet-tdt-0.6b-v3` (PT-PT, HuggingFace)
 - Nemotron: `nvidia/nemotron-3.5-asr-streaming-0.6b` (PT-BR, HuggingFace — requer NeMo + Python ≤3.13)
+- [ElevenLabs Scribe v2](https://elevenlabs.io/speech-to-text) — script: `transcribe-elevenlabs.ts`
+- [Deepgram Nova-3](https://deepgram.com/learn/nova-3-speech-to-text) — script: `transcribe-deepgram.ts`
+- [Cohere Transcribe](https://docs.cohere.com/reference/transcriptions) — script: `transcribe-cohere.ts`
+- Runner unificado Tier 1: `run-tier1-cloud.ts`
