@@ -1,8 +1,8 @@
 # ADR 0009 — Whisper local (mlx-whisper) avaliado como alternativa de transcrição
 
 **Data:** 2026-06-07
-**Atualizado:** 2026-06-27 (Tier 1 cloud benchmark)
-**Status:** aceito — Gemini 2.5 Flash é o provider primário (ADR 0010); Whisper local registrado como melhor opção para áudio real e fallback estratégico
+**Atualizado:** 2026-06-29 (Cloudflare Workers AI — Whisper hospedado)
+**Status:** aceito — Gemini 2.5 Flash é o provider primário (ADR 0010); Whisper registrado como melhor opção para áudio real e fallback estratégico, agora também disponível hospedado (Cloudflare Workers AI) sem necessidade de GPU própria
 
 ---
 
@@ -300,6 +300,74 @@ alteram essa decisão:
 
 ★ amostra-03: 7 min de áudio real com referência validada — todos os providers passam (2,7–3,9%). Adicionada após benchmark Tier 1 para isolar problema das referências antigas.
 
+## Extensão: Cloudflare Workers AI — Whisper hospedado avaliado (2026-06-29)
+
+A negativa central deste ADR é que o Whisper conflita com a arquitetura serverless (Cloud Run
+sem GPU). **Cloudflare Workers AI hospeda o Whisper como API serverless**, removendo exatamente
+esse bloqueador: roda-se Whisper large-v3-turbo sem GPU própria, a **US$ 0,0005/min**
+(≈ US$ 0,03/h) — 3–5× mais barato que o Gemini. Isso motivou benchmarkar três modelos do
+catálogo Workers AI contra o baseline aprovado (Gemini 2.5 Flash).
+
+**Modelos avaliados:** `@cf/openai/whisper` (base), `@cf/openai/whisper-large-v3-turbo`,
+`@cf/deepgram/nova-3`.
+
+**Método:** chamada REST direta à API (`api.cloudflare.com/.../ai/run/<model>`). Workers AI
+tem limite prático de ~5 min de áudio por request; áudios maiores são fatiados em chunks de
+2 min via ffmpeg (16 kHz mono, 64 kbps). Whisper-turbo aceita base64 em JSON; nova-3 aceita
+binário `audio/mpeg` com idioma em query param. Scripts: `src/transcribe-cloudflare.ts`,
+`src/run-cloudflare.ts`.
+
+### Resultados
+
+| Amostra | CF Whisper base | CF Whisper-turbo | CF Deepgram Nova-3 | Gemini Flash |
+|---|---|---|---|---|
+| amostra-01 (sintético) | 37,4% ❌ | 9,2% ✅ | 7,8% ✅ | 7,5% ✅ |
+| amostra-02 (sintético) | 27,2% ❌ | 16,0% ❌ | 12,1% ❌ | 5,3% ✅ |
+| amostra-03 (real, ref. validada) ★ | 95,2% ❌ | 3,7% ✅ | 5,2% ✅ | 2,7% ✅ |
+| amostra-real-01 (77 min, ref. comprometida) | 81,6% ❌ | 18,6% ❌ | 31,8% ❌ | 24,9% ❌ |
+| amostra-real-02 (10 min, ref. comprometida) | 70,8% ❌ | 25,3% ❌ | 21,5% ❌ | 24,4% ❌ |
+| **Aprovados** | 0/5 | 2/5 | 2/5 | 2/5 |
+| **Custo/hora (ref.)** | US$ 0,03 | **US$ 0,03** | US$ 0,31 | ~US$ 0,10–0,15 |
+
+★ Aplicando a leitura do benchmark Tier 1 (real-01/real-02 têm referência comprometida; ver
+seção anterior), a comparação honesta é sobre amostra-01/02/03. Nesse recorte: CF Whisper-turbo
+**2/3**, CF Nova-3 **2/3**, Gemini **3/3**.
+
+### Análise
+
+- **CF Whisper base: descartado.** 0/5, WER de até 95%. O modelo base é fraco e os cortes de
+  chunk em 2 min agravam o erro. Não usar.
+- **CF Whisper-turbo: fallback hospedado barato e viável.** Aprova amostra-01 e amostra-03
+  (3,7% — excelente). Removendo o bloqueador de GPU, é a forma mais barata de obter
+  Whisper-turbo em produção sem worker dedicado. **Ressalva:** regride para 16,0% em amostra-02
+  (vs 10,7% do turbo local e 5,3% do Gemini) — pior que o turbo rodado localmente, provavelmente
+  por diferença de parâmetros de decodificação do endpoint Workers AI. Não bate o Gemini em
+  áudio sintético limpo.
+- **CF Nova-3: pior custo-benefício.** Mesmo 2/5, mas **~2× mais caro que o Gemini** (US$ 0,31/h)
+  e o mais caro do trio CF. Os números diferem do Nova-3 via API própria da Deepgram (seção
+  Tier 1: 23,6%/27,9% nas reais vs 31,8%/21,5% aqui) — endpoints e parâmetros distintos. Sem
+  vantagem que justifique o custo.
+
+### Decisão sobre Cloudflare
+
+**Mantém Gemini 2.5 Flash como provider primário** (ADR 0010). **Registra CF Whisper-turbo
+(`@cf/openai/whisper-large-v3-turbo`) como o fallback hospedado mais barato** — relevante porque
+oferece qualidade-Whisper sem a GPU própria que o Whisper local exige, ao custo de:
+- **Sair do Google Cloud:** adiciona a Cloudflare como provider, contrariando a consolidação
+  no GCP (ADR 0007) e exigindo nova avaliação de DPA/residência de dados (o áudio sairia para
+  a infra da Cloudflare, não `southamerica-east1`). **Bloqueador para LGPD/RNF-02 enquanto não
+  validado.**
+- **Chunking manual de 2 min:** reintroduz a complexidade de fragmentação que o Gemini eliminou.
+- **Regressão em áudio sintético** (amostra-02) vs Gemini e vs turbo local.
+
+Promover CF Whisper-turbo a primário reabriria o ADR 0010 e exigiria resolver a residência de
+dados — fora de escopo agora. Fica como **candidato a fallback de custo**, a reavaliar na Fase 1
+se o custo do Gemini em produção se mostrar proibitivo.
+
+**Scripts descartáveis:** `src/transcribe-cloudflare.ts`, `src/run-cloudflare.ts`.
+
+---
+
 ## Consequências
 
 ### Positivas
@@ -360,3 +428,6 @@ produzem output truncado — não usar para este modelo específico.
 - [Deepgram Nova-3](https://deepgram.com/learn/nova-3-speech-to-text) — script: `transcribe-deepgram.ts`
 - [Cohere Transcribe](https://docs.cohere.com/reference/transcriptions) — script: `transcribe-cohere.ts`
 - Runner unificado Tier 1: `run-tier1-cloud.ts`
+- [Cloudflare Workers AI — Whisper large-v3-turbo](https://developers.cloudflare.com/workers-ai/models/whisper-large-v3-turbo/) — script: `transcribe-cloudflare.ts`
+- [Cloudflare Workers AI — Deepgram Nova-3](https://developers.cloudflare.com/workers-ai/models/nova-3/)
+- Runner Cloudflare: `run-cloudflare.ts`

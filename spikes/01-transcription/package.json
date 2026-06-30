@@ -17,6 +17,7 @@
     "run-gemini": "tsx src/run-gemini.ts",
     "run-whisper-new": "tsx src/run-whisper-new-models.ts",
     "run-tier1": "tsx src/run-tier1-cloud.ts",
+    "run-cloudflare": "tsx src/run-cloudflare.ts",
     "soap": "tsx src/soap.ts",
     "test": "node --import tsx --test src/compute-wer.test.ts"
   },

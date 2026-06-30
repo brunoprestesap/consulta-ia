@@ -1,5 +1,6 @@
 node_modules/
 .venv/
+.venv*/
 .env
 samples/
 results/
@@ -7,3 +8,4 @@ credentials/
 dist/
 *.log
 models/
+model_config.yaml

@@ -66,6 +66,14 @@ A implementação de produção será desenvolvida na Fase 1 como Route Handler 
 - **Whisper local (large-v3/MLX)** — melhor WER em áudio real (16,3% vs 24,9% do Gemini em
   amostra-real-01), mas conflita com arquitetura serverless em Cloud Run (sem GPU). Ver ADR 0009.
 
+- **Cloudflare Workers AI — Whisper-turbo hospedado** (`@cf/openai/whisper-large-v3-turbo`) —
+  benchmarkado em 2026-06-29 (ver ADR 0009). Roda Whisper-turbo sem GPU própria a US$ 0,03/h
+  (3–5× mais barato que o Gemini), removendo o bloqueador de infra do Whisper local. Descartado
+  como primário por: (a) sair do GCP, contrariando a consolidação do ADR 0007 e reabrindo a
+  residência de dados (LGPD/RNF-02 — áudio iria para a Cloudflare, não `southamerica-east1`);
+  (b) regressão em áudio sintético (16,0% em amostra-02 vs 5,3% do Gemini); (c) chunking manual
+  de 2 min. Registrado como **candidato a fallback de custo** se o Gemini se mostrar caro em produção.
+
 - **Gemini 2.5 Pro / 2.5 Flash-Lite** — ambos retornam 404 em `southamerica-east1` (testado
   em 2026-06-27). Indisponíveis na região. Usar Flash enquanto não chegarem a São Paulo.
 
