@@ -30,7 +30,8 @@ Template mínimo em [`_template.md`](./_template.md).
 | [0003](0003-llm-resumo-soap.md) | LLM primário para geração de resumo SOAP psiquiátrico | proposto (preview validado; Spike 2 formal pendente) |
 | [0009](0009-whisper-local-alternativa-transcricao.md) | Whisper local (mlx-whisper) avaliado como alternativa de transcrição | aceito |
 | [0010](0010-gemini-flash-engine-transcricao.md) | Gemini 2.5 Flash como engine de transcrição PT-BR | aceito |
-| [0011](0011-captacao-preprocessamento-audio.md) | Captação (mic do device) e pré-processamento de áudio validado por WER | proposto (A/B pendente no Spike 1) |
+| [0011](0011-captacao-preprocessamento-audio.md) | Captação (mic do device) e pré-processamento de áudio validado por WER | aceito (validação inicial no Spike 1, Passo 8) |
+| [0012](0012-chunking-audio-longo.md) | Chunking de áudio longo para transcrição estável | proposto (validação pendente no Spike 4) |
 
 ## ADRs pendentes (para criar quando implementados)
 

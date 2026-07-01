@@ -8,6 +8,13 @@ Os três spikes abaixo são **desbloqueadores críticos** do MVP. Precisam ser e
 2. **[Spike 2 — LLM para resumo SOAP](./spike-02-llm-soap.md)** — Maritaca Sabiá 4 gera resumo psiquiátrico de qualidade aceitável? _(depende do Spike 1 para ter transcrições como input)_
 3. **[Spike 3 — Wake Lock no Safari iOS](./spike-03-wake-lock.md)** — A API mantém a tela ativa durante gravação MediaRecorder longa? _(pode rodar em paralelo com Spike 1)_
 
+## Follow-ups gerados durante a execução
+
+- **[Spike 4 — Chunking de áudio longo](./spike-04-chunking-audio-longo.md)** — follow-up do
+  Spike 1 (não um quarto desbloqueador original). O Passo 8 do Spike 1 revelou que a transcrição
+  single-call do Gemini degenera em áudio longo (77 min → WER 63,5%/328%, loops de repetição),
+  enquanto áudio curto é estável. Este spike valida o chunking como correção. Ver ADR 0012.
+
 ## Documentos ainda pendentes
 
 Os spikes 2 e 3 serão documentados em detalhe quando o Spike 1 for concluído. Por enquanto, resumos:
