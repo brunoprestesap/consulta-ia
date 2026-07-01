@@ -157,7 +157,13 @@ de consultório. Hipóteses:
   candidato interessante se WER for equivalente ao 2.5 Flash.
 - Disponibilidade de Gemini 2.5 Pro e 2.5 Flash-Lite em `southamerica-east1`.
 - Disponibilidade de Chirp 3 (ou modelo equivalente de STT dedicado) em `southamerica-east1`.
-- WER em áudio real com pré-processamento de ruído (validar se o gap de 24% fecha).
+- WER em áudio real com pré-processamento de ruído: **validado (não fecha o gap)** no Passo 8
+  do Spike 1. Denoise empatou com áudio cru; processamento leve piorou. Ver ADR 0011.
+- **Instabilidade em áudio longo (single-call):** no Passo 8 (2026-06-30), a transcrição da
+  amostra de 77 min em chamada única degenerou — baseline oscilou 24,9%↔63,5% entre execuções
+  e uma variante entrou em loop de repetição (WER 328%, 37.658 palavras vs 9.974 de referência).
+  **Produção precisa de chunking** para áudios longos; a chamada única só é confiável em áudios
+  curtos (~10 min tiveram variância de apenas 1,8 pp). Priorizar na Fase 1.
 - Custo real em produção (estimativa baseada em tokens de áudio do pricing público).
 
 ## Referências

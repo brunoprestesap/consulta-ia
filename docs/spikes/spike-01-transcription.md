@@ -1,9 +1,9 @@
 # Spike 1 — Transcrição de áudio de consulta psiquiátrica
 
-**Status:** engine aprovada (Gemini 2.5 Flash — ADR 0010); **Passo 8 (protocolo A/B de pré-processamento) pendente**
+**Status:** engine aprovada (Gemini 2.5 Flash — ADR 0010); **Passo 8 executado — pré-processamento não ajuda (ADR 0011); novo gargalo: chunking de áudio longo**
 **Fase:** 0 (desbloqueador crítico)
 **Responsável:** dev solo
-**Última atualização:** 2026-06-30 (alinhamento ao Gemini)
+**Última atualização:** 2026-06-30 (execução do Passo 8)
 
 > **Histórico:** este spike começou mirando **Google Cloud Speech-to-Text** (ADR 0001). A
 > reavaliação formal — 4 amostras, 3 engines — resultou no pivot para **Gemini 2.5 Flash via
@@ -290,14 +290,38 @@ amostra-real-01 (77 min):
   escalar para as outras mitigações do ADR 0010 (prompt por equipamento, vocabulário expandido)
   e reforçar a etapa de revisão do médico no produto.
 
+### Resultado do Passo 8 (executado em 2026-06-30)
+
+Runner: `src/run-preprocess-ab.ts` (+ `src/variance-probe.ts`). Engine: Gemini 2.5 Flash.
+
+**Variância primeiro:** áudio cru, mesmo input, 3 execuções → WER médio **21,2%**, amplitude
+**1,8 pp** (20,5–22,3%). Diferenças < ~2 pp são ruído.
+
+**amostra-real-02 (10 min) — válida:**
+
+| Variante | WER | Palavras (ref 1019) |
+|---|---|---|
+| Baseline cru (média 3×) | ~21,2% | 1118 |
+| C — mínimo (highpass+loudnorm) | **38,4%** ❌ piora | 878 (−141, deleções) |
+| D — denoise agressivo (afftdn+…) | 20,4% ≈ cru | 1071 |
+
+→ **Pré-processamento não reduz o WER.** D empata com o cru; C (loudnorm sobre áudio ruidoso)
+degrada e faz o modelo pular trechos. Confirma o ADR 0011.
+
+**amostra-real-01 (77 min) — INVÁLIDA:** baseline fresco 63,5% (histórico 24,9%), variante D em
+loop de repetição (WER 328%, 37.658 palavras). Causa: **instabilidade de áudio longo em chamada
+única**, não o filtro. → **Produção precisa de chunking** (rastreado em ADR 0010 e 0011).
+
 ### Checklist do Passo 8
 
-- [ ] Constraints A e B implementadas na captura
-- [ ] Filtros C e D documentados e reproduzíveis (comando + versão)
-- [ ] 4 variantes geradas para amostra-real-01 e amostra-real-02
-- [ ] 4 variantes transcritas via Gemini Flash
-- [ ] Tabela comparativa de WER emitida
-- [ ] Variante vencedora registrada e ADR 0011 atualizado (proposto → aceito) ou reaberto
+- [x] Filtros C e D documentados e reproduzíveis (`run-preprocess-ab.ts`, ffmpeg 8.1.1)
+- [x] Variantes geradas e transcritas via Gemini Flash (real-02 e real-01)
+- [x] Variância run-to-run medida (probe dedicada) — pré-requisito para interpretar o A/B
+- [x] Tabela comparativa de WER emitida
+- [x] ADR 0011 atualizado (proposto → aceito, com ressalvas)
+- [ ] Constraints A/B de captura no browser (`getUserMedia`) — adiado para Fase 1
+- [ ] Repetir A/B numa 2ª amostra real **curta** para elevar o n
+- [ ] Chunking de áudio longo (novo gargalo descoberto) — Fase 1
 
 ---
 
